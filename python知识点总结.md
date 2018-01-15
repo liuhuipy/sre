@@ -771,23 +771,122 @@ $ python rewho2.py
     - 支持CSV格式输出，便于将监控信息导入Gnumeric和Excel以生成图形。
 * 安装使用dstat（这里使用Centos7）
 ```angular2html
-yum install dstat
+$ yum install dstat
 dstat --version         # 除了显示dstat的版本之外，还会显示操作系统的版本、Python语言的版本、cpu的个数，
                         # 以及dstat支持的插件列表等详细信息。
+Dstat 0.7.2
+...
 
-dstat --list            # 直接在终端输入dstat命令，dstat将以默认参数运行。默认情况下，dstat会收集cpu、磁盘、网络、
-                        # 换页和系统信息，并以一秒钟一次的频率进行输出，直到我们按ctrl+c结束。
+Platform posix/linux2
+Kernel 3.10.0-514.21.1.el7.x86_64
+Python 2.7.5 (default, Nov  6 2016, 00:28:07) 
+[GCC 4.8.5 20150623 (Red Hat 4.8.5-11)]
+
+Terminal type: xterm-256color (color support)
+Terminal size: 24 lines, 80 columns
+...
+
+$ dstat --list            # 使用dstat命令的 --list选项获取dstat的插件列表
+internal:
+	aio, cpu, cpu24, disk, disk24, disk24old, epoch, fs, int, int24, io, 
+	ipc, load, lock, mem, net, page, page24, proc, raw, socket, swap, 
+	swapold, sys, tcp, time, udp, unix, vm
+/usr/share/dstat:
+	battery, battery-remain, cpufreq, dbus, disk-tps, disk-util, dstat, 
+	dstat-cpu, dstat-ctxt, dstat-mem, fan, freespace, gpfs, gpfs-ops, 
+	...
+	
+# 直接在终端输入dstat命令，dstat将以默认参数运行。默认情况下，dstat会收集cpu、磁盘、网络、
+# 换页和系统信息，并以一秒钟一次的频率进行输出，直到我们按ctrl+c结束。
             
 ```
 * dstat常用选项
     - -c：显示cpu的使用情况。显示了cpu时间花费在各类操作的百分比，包括执行用户代码(usr)、执行系统代码(sys)、空闲(idl)和
     等待IO(wai)。如果usr的值较高，说明当前系统钟cpu负载较大；如果wai长期处于较大值，说明IO等待比较严重；
     - -d：显示磁盘的读写情况，在进行性能测试时可以使用该字段观察当前的磁盘负载；
-    - -n：网络设备发送和接收的数据，这一栏显示网络收发数据的总数。
+    - -n：网络设备发送和接收的数据，这一栏显示网络收发数据的总数；
+    - -g：表示换页活动；
+    - -y：系统统计。这一项显示的是中断(int)和上下文切换(csw)；
+    - -t：显示统计系统的当前时间；
+    - -l、--load：统计系统负载情况，包括1分钟、5分钟、15分钟平均值；
+    - -p、--proc：统计进程信息，包括runnable、blocked和new的进程数量；
+    - --tcp：显示常用的TCP统计；
+    - --fs：统计文件打开数和inodes数。
+    ```angular2html
+    $ dstat -tlp --tcp --fs
+    ----system---- ---load-avg--- ---procs--- ----tcp-sockets---- --filesystem-
+     time     | 1m   5m  15m |run blk new|lis act syn tim clo|files  inodes
+    16-01 00:15:07|   0 0.01 0.05|0.0   0 0.8|  8   1   0   0   0| 1216  12282 
+    16-01 00:15:08|   0 0.01 0.05|  0   0   0|  8   1   0   0   0| 1216  12282 
+    16-01 00:15:09|   0 0.01 0.05|  0   0 1.0|  8   1   0   0   0| 1216  12282 
+    16-01 00:15:10|   0 0.01 0.05|  0   0   0|  8   1   0   0   0| 1216  12282 
+    16-01 00:15:11|   0 0.01 0.05|  0   0   0|  8   1   0   0   0| 1216  12282 
+    16-01 00:15:12|   0 0.01 0.05|  0   0   0|  8   1   0   0   0| 1216  12282 
+    16-01 00:15:13|   0 0.01 0.05|  0   0   0|  8   1   0   0   0| 1216  12282 
+    16-01 00:15:14|   0 0.01 0.05|  0   0 1.0|  8   1   0   0   0| 1216  12282 
+    16-01 00:15:15|   0 0.01 0.05|  0   0 1.0|  8   1   0   0   0| 1216  12282 
+    16-01 00:15:16|   0 0.01 0.05|  0   0   0|  8   1   0   0   0| 1216  12282 
+    16-01 00:15:17|   0 0.01 0.05|  0   0 1.0|  8   1   0   0   0| 1216  12282
+    ...
+    # dstat还可以像vmstat和iostat一样使用参数控制报告的时间间隔，或者同时指定时间间隔与报告次数。
+    $ dstat 2 10              # 以默认选项运行dstat，每两秒输出一条监控信息，并在输出10条监控信息后自动退出dstat
+    You did not select any stats, using -cdngy by default.
+    ----total-cpu-usage---- -dsk/total- -net/total- ---paging-- ---system--
+    usr sys idl wai hiq siq| read  writ| recv  send|  in   out | int   csw 
+      0   0  99   0   0   0| 393B   15k|   0     0 |   0     0 |  49    94 
+      0   0 100   0   0   0|   0    96k| 539B 1276B|   0     0 |  72    93 
+      1   0 100   0   0   0|   0     0 | 594B 1002B|   0     0 |  56   100 
+      0   1  99   0   0   0|   0     0 | 539B  999B|   0     0 |  65   120 
+      0   0  99   0   0   0|   0    16k| 176B  434B|   0     0 |  44    78 
+      0   0 100   0   0   0|   0     0 | 539B 1140B|   0     0 |  58   108 
+      1   0 100   0   0   0|   0     0 | 901B 1492B|   0     0 |  66   129 
+      0   0  99   0   0   0|   0    40k| 901B 1909B|   0     0 |  81   136 
+      0   0 100   0   0   0|   0     0 | 539B  952B|   0     0 |  57   115 
+      0   0 100   0   0   0|   0     0 | 176B  430B|   0     0 |  43    76 
+      1   0  98   2   0   0|   0    18k| 176B  452B|   0     0 |  44    71 
+    ```
+* dstat高级用法
+    - dstat的强大之处不仅仅是因为它聚合了多种工具的监控结果，还因为它能通过附带的插件实现一些高级功能，如找出占用资源最高的进程和
+    用户。dstat的--top-(io|bio|cpu|cputime|cputime-avg|mem)这几个选项可以看到是哪个用户和哪个进程占用了相关系统资源，对系统
+    调优非常有效。如查看当前占用I/O、cpu、内存等最高的进程信息可以使用--top-mem --top-io --top-cpu选项。
+    ```angular2html
+    $ dstat --top-io                  # 占用io最多的进程
+    ----most-expensive----
+       i/o process      
+    systemd      10k 1370B
+    sshd: root@ 146B  180B
+    barad_agent 823B  991B
+    sshd: root@  78B  116B
+    barad_agent1450B 1032B
+    sshd: root@  78B  116B
+    sshd: root@  78B  116B
+    ...
+    $ dstat --top-mem --top-io --top-cpu 2 5          # 多个选项连用
+    --most-expensive- ----most-expensive---- -most-expensive-
+      memory process |     i/o process      |  cpu process   
+    uwsgi       49.0M|systemd      10k 1370B|barad_agent  0.0
+    uwsgi       49.0M|barad_agent1818B  516B|                
+    uwsgi       49.0M|barad_agent 412B  488B|                
+    uwsgi       49.0M|barad_agent 725B  470B|barad_agent  1.0
+    uwsgi       49.0M|sshd: root@ 153B  192B|                
+    uwsgi       49.0M|sshd: root@ 149B  188B|
+    $ dstat --top-cpu --top-mem --top-io --output dstat_output.csv        # 将监控信息保存到csv文件中
+    $ cat dstat_output.csv 
+    "Dstat 0.7.2 CSV output"
+    "Author:","Dag Wieers <dag@wieers.com>",,,,"URL:","http://dag.wieers.com/home-made/dstat/"
+    "Host:","VM_19_199_redhat",,,,"User:","root"
+    "Cmdline:","dstat --top-cpu --top-mem --top-io --output dstat_output.csv",,,,"Date:","16 Jan 2018 00:46:41 CST"
 
-
-
-
+    "most expensive","most expensive","most expensive"
+    "cpu process","memory process","i/o process"
+    barad_agent / 0%,uwsgi / 51769344%,systemd / 10082:1369
+    barad_agent / 1%,uwsgi / 51769344%,barad_agent / 2582:5688
+    sgagent / 0%,uwsgi / 51769344%,barad_agent / 22:449
+    barad_agent / 1%,uwsgi / 51769344%,barad_agent / 0:942
+    sgagent / 0%,uwsgi / 51769344%,barad_agent / 3635:1032
+    barad_agent / 1%,uwsgi / 51769344%,barad_agent / 143033:2248
+    sgagent / 0%,uwsgi / 51769344%,barad_agent / 823:976
+    ```
 
 
 
