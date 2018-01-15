@@ -888,5 +888,128 @@ internal:
     sgagent / 0%,uwsgi / 51769344%,barad_agent / 823:976
     ```
 
+### 使用Python打造自己的监控工具
+* Linux系统的/proc目录介绍，/proc是一个位于内存中的伪文件系统。该目录下保存的不是真正的文件和目录，而是一些'运行时'的信息，如
+系统内存、磁盘io、设备挂载信息和硬件配置信息等。/proc也是内核提供给我们的查询中心，用户可以通过这些文件查看有关系统硬件及当前
+正在运行进程的信息。在Linux系统中，许多工具的数据来源正是proc目录中的内容，例如，lsmod命令是cat /proc/modules命令的别名，
+lspci命令是cat /proc/pci命令的别名。
+* proc目录被称作虚拟文件系统。
+```angular2html
+$ ll /proc
+...
+dr-xr-xr-x  9 root           root                         0 Dec  9 14:59 7
+dr-xr-xr-x  9 root           root                         0 Dec  9 14:59 8
+dr-xr-xr-x  9 rpc            rpc                          0 Dec  9 15:55 8134
+dr-xr-xr-x  9 root           root                         0 Dec  9 14:59 9
+dr-xr-xr-x  9 root           root                         0 Dec  9 14:59 96
+dr-xr-xr-x  2 root           root                         0 Jan 16 00:52 acpi
+-r--r--r--  1 root           root                         0 Jan 16 00:52 buddyinfo
+dr-xr-xr-x  4 root           root                         0 Jan 16 00:52 bus
+-r--r--r--  1 root           root                         0 Jan 16 00:52 cgroups
+-r--r--r--  1 root           root                         0 Jan 16 00:52 cmdline
+-r--r--r--  1 root           root                         0 Jan 16 00:52 consoles
+-r--r--r--  1 root           root                         0 Jan 16 00:52 cpuinfo
+-r--r--r--  1 root           root                         0 Jan 16 00:52 crypto
+-r--r--r--  1 root           root                         0 Jan 16 00:52 devices
+-r--r--r--  1 root           root                         0 Jan 16 00:52 diskstats
+-r--r--r--  1 root           root                         0 Jan 16 00:52 dma
+... 
+```
+* proc目录下常用文件介绍，在编写Linux的监控系统时，最基本的监控包括cpu、内存、磁盘和网络等信息，可以从下面几个文件中获取：
+    - /proc/loadavg：保存了系统负载的平均值，其前三列分别表示最近1分钟、5分钟、15分钟的平均负载。反应系统的繁忙情况；
+    - /proc/meminfo：一般由free命令统计当前内存使用信息，可以使用文件查看命令直接读取此文件；
+    - /proc/diskstats：磁盘设备的磁盘I/O统计信息列表；
+    - /proc/cmdline：启动时传递给kernel的参数信息；
+    - /proc/filesystems：内核当前支持的文件系统类型；
+    - /proc/net/dev：网络流入流出的统计信息，包括接收包的数量、发送包的数量，发送数据包时的错误和冲突情况等；
+    - /proc/cpuinfo：查看cpu的详细信息；
+    - /proc/devices：系统已经加载的所有块设备和字符设备的信息；
+    - /proc/mounts：系统中当前挂载的所有文件系统；
+    - /proc/uptime：系统上次启动以来的运行时间；
+    - /proc/version：当前系统运行的内核版本号；
+    - /proc/vmstat：当前系统虚拟内存的统计数据；
+* 使用shell脚本监控Linux
+```
+$ vim monitor.sh
+cpu_idle=$(top -n2 | grep 'Cpu' | tail -n 1 | awk '{ print $8 }')
+cpu_usage=$(echo "100 - $cpu_idle" | bc)
+
+mem_free=$(free -m | awk '/Mem:/{ print $4 + $6 + $7 }')
+mem_total=$(free -m | awk '/Mem:/{ print $2 }')
+mem_used=$(echo "$mem_total - $mem_free" | bc)
+mem_rate=$(echo "$mem_used * 100 / $mem_total" | bc)
+
+disk_usage=$(df -h / | tail -n 1 | awk '{ print $5 }')
+disk_used=$(df -h / | tail -n 1 | awk '{ print $3 }')  
+
+echo "cpu利用率：$cpu_usage %"
+echo "内存使用量：$mem_used M"
+echo "内存利用率：$mem_rate %"
+echo "磁盘空间使用量：$disk_used"
+echo "磁盘空间利用率：$disk_usage"
+
+$ bash monitor.sh
+cpu利用率：.3 %
+内存使用量：-459 M
+内存利用率：-46 %
+磁盘空间使用量：7.0G
+磁盘空间利用率：15%
+```
+* 使用Python监控Linux
+    - 在Python语言中，对于cpu利用率、内存利用率、磁盘使用量等监控项，可以参考shell脚本中获取监控的方式实现。
+    - 磁盘的详细监控信息位于/proc/diskstats文件中。获取监控信息的难点在于该文件具有较多的字段，每个字段具有不同的含义。在Python语言中，
+    可以定义一个类来表示磁盘的监控项。这里我们可以使用命名元组(namedtuple)。/proc/diskstats文件的每一行都保存了一块磁盘的io统计信息，
+    并且在/proc/diskstats文件中，每一行都有相同个数的字段，字段的个数和顺序也非常明确。因此我们可以考虑使用namedtuple来保存diskstats
+    文件中的字段，在读取时，可以使用更加具有可读性的名称来引用diskstats文件中的字段。
+    ```angular2html
+    $ vim diskstats.py
+    #!/usr/bin/python
+    # -*- coding:utf-8 -*-
+    from __future__ import print_function
+    from collections import namedtuple
+
+    Disk = namedtuple('Disk', 'major_number minor_number device_name'
+	    		' read_count read_merged_count read_sections'
+		    	' time_spent_reading write_count write_merged_count'
+			    ' write_sections time_spent_write io_requests'
+			    ' time_spent_doing_io weighted_time_spent_doing_io')
+
+    def get_disk_info(device):
+        """
+        从/proc/diskstats中读取磁盘的IO信息
+        $ cat /proc/diskstats
+        253       0 vda 98877 206 2588650 2158459 7278514 4373679 98199576 181448662 0 9450886 183606505
+        253       1 vda1 98786 206 2587058 2158317 7265510 4373679 98199576 181423679 0 9427899 183581400
+        """
+        with open("/proc/diskstats") as f:
+	        for line in f:
+	            if line.split()[2] == device:
+		            return Disk(*(line.split()))
+        raise RuntimeError("device {{0}} not found !".format(device))
+
+
+    def main():
+        disk_info = get_disk_info('vda')
+        print(disk_info)
+    
+        print("磁盘写次数：{0}".format(disk_info.write_count))
+        print("磁盘写字节数：{0}".format(long(disk_info.write_sections) * 512))
+        print("磁盘写延时：{0}".format(disk_info.time_spent_write))
+
+
+    if __name__ == '__main__':
+        main()
+      
+    $ python diskstats.py
+    Disk(major_number='253', minor_number='0', device_name='vda', read_count='102905', read_merged_count='213', 
+    read_sections='2747130', time_spent_reading='2260147', write_count='7284766', write_merged_count='4415573',
+    write_sections='98603312', time_spent_write='185154980', io_requests='0', time_spent_doing_io='9509921', 
+    weighted_time_spent_doing_io='187414508')
+    磁盘写次数：7284766
+    磁盘写字节数：50484895744
+    磁盘写延时：185154980
+    ```
+
+
 
 
