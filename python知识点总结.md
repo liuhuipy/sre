@@ -742,7 +742,6 @@ $ python rewho2.py
 ['liuhui', 'console', 'Dec 12 17:33']
 ['liuhui', 'ttys000', 'Dec 14 19:45']
 ['liuhui', 'ttys002', 'Dec 18 15:46']
-
 ```
 
 
