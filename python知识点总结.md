@@ -1010,6 +1010,110 @@ cpu利用率：.3 %
     磁盘写延时：185154980
     ```
 
+### 开源库监控Linux(psutil)
+* psutil是一个开源且跨平台的库，其提供了便利的函数用来获取操作系统的信息，如cpu、内存、磁盘、网络等信息。psutil还可以用来进行进程
+管理，包括判断进程是否存在、获取进程列表、获取进程的详细信息等。psutil还提供了许多命令行工具提供的功能，包括ps、top、lsof、netstat、
+ifconfig、who、df、free、kill、nice、iostat、uptime等。
+* psutil是一个跨平台的库，支持Linux、Windows、OSX、FreeBSD等操作系统。psutil支持Python2.6到Python3.6之间所有的python版本。
+* psutil是一个第三方的开源项目，可直接用pip安装：
+    ```
+    $ pip install psutil
+    ```
+#### psutil提供的功能函数
+* cpu
+    - cpu_count默认返回逻辑cpu的个数，也可以指定logical=False获取物理cpu的个数。
+    ```
+    In [1]: import psutil
 
+    In [2]: psutil.cpu_count()
+    Out[2]: 4
 
+    In [3]: psutil.cpu_count(logical=False)
+    Out[3]: 2
+    ```
+    - cpu_percent返回cpu的利用率，可以通过interval参数阻塞式地获取interval时间范围内的cpu利用率，可以使用percpu参数指定获取
+    每个cpu的利用率，默认获取整体的cpu利用率。
+    ```
+    In [4]: psutil.cpu_percent()
+    Out[4]: 5.4
 
+    In [5]: psutil.cpu_percent(percpu=True)
+    Out[5]: [11.4, 1.3, 7.3, 1.3]
+    
+    In [6]: psutil.cpu_percent(interval=2, percpu=True)
+    Out[6]: [13.6, 2.0, 6.5, 2.0]
+    ```
+    - cpu_times以命名元组的形式返回cpu的时间花费，也可以通过percpu参数指定获取每个cpu的统计时间。
+    ```
+    In [7]: psutil.cpu_times()
+    Out[7]: scputimes(user=6359.04, nice=6.53, system=3114.38, idle=3392720.36, iowait=9148.34, irq=0.0, 
+    softirq=122.57, steal=0.0, guest=0.0, guest_nice=0.0)
+    ```
+    - cpu_times_percent与cpu_times类似，但是返回的是耗费时间的比例。
+    ```
+    In [8]: psutil.cpu_times_percent()
+    Out[8]: scputimes(user=0.2, nice=0.3, system=0.7, idle=95.9, iowait=2.9, irq=0.0, softirq=0.0, steal=0.0, 
+    guest=0.0, guest_nice=0.0)
+    ```
+    - cpu_stats以命名元组返回cpu的统计信息，包括上下文切换、中断、软中断和系统调用的次数。
+    ```
+    In [9]: psutil.cpu_stats()
+    Out[9]: scpustats(ctx_switches=321304066, interrupts=166722235, soft_interrupts=119965657, syscalls=0)
+    ```
+* 内存
+    - virtual_memory以命名元组的形式返回内存使用情况，包括总内存、可用内存、内存利用率、buffer和cached等。除了内存利用率，其他
+    字段都以字节为单位返回。
+    ```
+    In [1]: import psutil
+    
+    In [2]: psutil.virtual_memory()
+    Out[2]: svmem(total=1040912384, available=642895872, percent=38.2, used=217673728, free=78962688, 
+    active=499863552, inactive=321830912, buffers=106143744, cached=638132224, shared=1503232)
+    In [3]: def bytes2human(n):
+       ...:     symbols = ('K', 'M', 'G', 'T', 'P', 'E', 'Z', 'Y')
+       ...:     prefix = {}
+       ...:     for i, s in enumerate(symbols):
+       ...:         prefix[s] = 1 << (i + 1) * 10
+       ...:     for s in reversed(symbols):
+       ...:         if n >= prefix[s]:
+       ...:             value = float(n) / prefix[s]
+       ...:             return '%.1f%s' % (value, s)
+       ...:     return "%sB" % n
+       ...: 
+    
+    In [4]: bytes2human(psutil.virtual_memory().total)
+    Out[4]: '992.7M'  
+    ```
+    - swap_memory以命名元组的形式返回swap memory的使用情况，显然，对swap memory的统计包含了页的换入与换出。
+    ```
+    In [5]: psutil.swap_memory()
+    Out[5]: sswap(total=0, used=0, free=0, percent=0.0, sin=0, sout=0)
+    ```
+* 磁盘
+    - disk_partitions返回所有已经挂载的磁盘，以命名元组的形式返回。命名元组包含磁盘名称、挂载点、文件系统类型等信息。
+    ```
+    In [1]: import psutil
+
+    In [2]: psutil.disk_partitions()
+    Out[2]: [sdiskpart(device='/dev/vda1', mountpoint='/', fstype='ext3', opts='rw,noatime,data=ordered')]
+    
+    In [3]: def get_disk_via_mountpoint(mountpoint):
+       ...:     disk = [item for item in psutil.disk_partitions() if item.mountpoint == mountpoint]
+       ...:     return disk[0].device
+       ...: 
+
+    In [4]: get_disk_via_mountpoint('/')
+    Out[4]: '/dev/vda1'
+    ```
+    - disk_usage获取磁盘的使用情况以命令元组返回，包括磁盘的容量，已经使用的磁盘容量、磁盘的空间利用率等。类似于Linux下的df命令。
+    ```
+    In [5]: psutil.disk_usage('/')
+    Out[5]: sdiskusage(total=52709421056, used=9939668992, free=40085475328, percent=19.9)
+
+    In [6]: psutil.disk_usage('/').percent
+    Out[6]: 19.9
+    
+    In [7]: type(psutil.disk_usage('/').percent)
+    Out[7]: float
+    ```
+    
