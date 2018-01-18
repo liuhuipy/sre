@@ -873,7 +873,7 @@ internal:
     $ dstat --top-cpu --top-mem --top-io --output dstat_output.csv        # 将监控信息保存到csv文件中
     $ cat dstat_output.csv 
     "Dstat 0.7.2 CSV output"
-    "Author:","Dag Wieers <dag@wieers.com>",,,,"URL:","http://dag.wieers.com/home-made/dstat/"
+    "Author:","Dag Wieers dag@wieers.com>",,,,"URL:","http://dag.wieers.com/home-made/dstat/"
     "Host:","VM_19_199_redhat",,,,"User:","root"
     "Cmdline:","dstat --top-cpu --top-mem --top-io --output dstat_output.csv",,,,"Date:","16 Jan 2018 00:46:41 CST"
 
@@ -1116,4 +1116,80 @@ ifconfig、who、df、free、kill、nice、iostat、uptime等。
     In [7]: type(psutil.disk_usage('/').percent)
     Out[7]: float
     ```
+    - disk_io_counters以命名元组的形式返回磁盘io统计信息，包括读的次数、写的次数、读字节数、写字节数等。
+    ```
+    In [8]: psutil.disk_io_counters()
+    Out[8]: sdiskio(read_count=159050, write_count=7854072, read_bytes=2481423360, write_bytes=57169477632,
+     read_time=3582659, write_time=285442557, read_merged_count=292, write_merged_count=5336543, busy_time=11337707)
+
+    In [9]: psutil.disk_io_counters(perdisk=True)
+    Out[9]: {'vda1': sdiskio(read_count=159050, write_count=7854104, read_bytes=2481423360,
+     write_bytes=57169760256, read_time=3582659, write_time=285442725, read_merged_count=292, 
+     write_merged_count=5336583, busy_time=11337797)}
+    ```
+* 网络
+    - net_io_counters返回当前系统中网络io统计信息是监控系统中最需要关注的网络信息。net_io_counters函数以命名元组返回每块网卡的网络
+    io统计信息，包括收发字节数、收发包的数量、出错情况和删包情况。使用net_io_counters函数与解析/proc/net/dev文件内容实现功能相同。
+    ```
+    In [1]: import psutil
+
+    In [2]: psutil.net_io_counters()
+    Out[2]: snetio(bytes_sent=2522047413, bytes_recv=2792065242, packets_sent=15997213, packets_recv=17443836,
+     errin=0, errout=0, dropin=0, dropout=0)
+
+    In [3]: psutil.net_io_counters(pernic=True)
+    Out[3]: 
+    {'eth0': snetio(bytes_sent=2317606811, bytes_recv=2587624905, packets_sent=15950616, packets_recv=17397280, 
+    errin=0, errout=0, dropin=0, dropout=0),
+    'lo': snetio(bytes_sent=204453785, bytes_recv=204453785, packets_sent=46707, packets_recv=46707, errin=0,
+     errout=0, dropin=0, dropout=0)}
+    ```
+    - net_connections以列表的形式返回每个网络连接的详细信息，可以使用该函数查看网络连接状态，统计连接数以及处于待定状态的连接数。
+    ```
+    In [4]: psutil.net_connections()
+    Out[4]: 
+    [sconn(fd=-1, family=2, type=1, laddr=addr(ip='127.0.0.1', port=46515), raddr=(), status='LISTEN', pid=None),
+    ...
+    
+    In [5]: conns = psutil.net_connections()
+    
+    In [6]: len([conn for conn in conns if conn.status == 'TIME_WAIT'])
+    Out[6]: 0
+
+    In [7]: len([conn for conn in conns if conn.status == 'LISTEN'])
+    Out[7]: 8
+    ```
+    - net_if_addrs以字典形式返回网卡的配置信息，包括ip地址或mac地址、子网掩码和广播地址。
+    ```
+    In [8]: psutil.net_if_addrs()
+    Out[8]: 
+    {'eth0': [snic(family=2, address='10.154.19.199', netmask='255.255.192.0', broadcast='10.154.63.255', ptp=None),
+    snic(family=17, address='52:54:00:34:b6:31', netmask=None, broadcast='ff:ff:ff:ff:ff:ff', ptp=None)],
+    'lo': [snic(family=2, address='127.0.0.1', netmask='255.0.0.0', broadcast=None, ptp=None),
+    snic(family=17, address='00:00:00:00:00:00', netmask=None, broadcast=None, ptp=None)]}
+    ```
+    - net_if_stats返回网卡的详细信息，包括是否启动、通信类型、传输速度与mtu。
+    ```
+    In [9]: psutil.net_if_stats()
+    Out[9]: 
+    {'eth0': snicstats(isup=True, duplex=0, speed=0, mtu=1500),
+    'lo': snicstats(isup=True, duplex=0, speed=0, mtu=65536)}
+    ```
+* 其他
+    - users以命名元组的方式返回当前登陆用户的信息，包括用户名、登陆时间、终端与主机信息。
+    ```
+    In [10]: psutil.users()
+    Out[10]: [suser(name='liuhui', terminal='pts/1', host='101.130.54.76', started=1516298240.0, pid=9114)]
+    ```
+    - boot_time以时间戳的形式返回系统的启动时间。
+    ```
+    In [11]: import datetime
+
+    In [12]: psutil.boot_time()
+    Out[12]: 1512802687.0
+
+    In [13]: datetime.datetime.fromtimestamp(psutil.boot_time()).strftime("%Y-%m-%d %H:%M:%S")
+    Out[13]: '2017-12-09 14:58:07'
+    ```
+    
     
