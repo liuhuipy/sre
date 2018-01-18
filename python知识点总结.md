@@ -1191,5 +1191,121 @@ ifconfig、who、df、free、kill、nice、iostat、uptime等。
     In [13]: datetime.datetime.fromtimestamp(psutil.boot_time()).strftime("%Y-%m-%d %H:%M:%S")
     Out[13]: '2017-12-09 14:58:07'
     ```
+
+#### 使用psutil实现监控程序
+* 使用psutil收集cpu的信息、开机时间、内存信息以及磁盘空间等信息。监控程序不同函数收集不同纬度的监控信息以字典形式返回。
+```
+$ vim monitor.py                        # 编辑monitor.py收集监控信息
+#!/usr/bin/python
+# -*- coding: utf-8 -*-
+from __future__ import unicode_literals
+import os
+import socket
+from datetime import datetime
+
+import jinja2
+import yagmail
+import psutil
+
+
+EMAIL_USER = 'xxxxxx@163.com'
+EMAIL_PASSWORD = 'xxxxxx'
+RECIPIENTS = ['xxxxxx@qq.com']
+
+def render(tpl_path, **kwargs):
+    path, filename = os.path.split(tpl_path)
+    return jinja2.Environment(
+        loader=jinja2.FileSystemLoader(path or './')
+    ).get_template(filename).render(**kwargs)
+
+def bytes2human(n):
+    symbols = ('K', 'M', 'G', 'T', 'P', 'E', 'Z', 'Y')
+    prefix = {}
+    for i,s in enumerate(symbols):
+        prefix[s] = 1 << (i + 1) * 10
+    for s in reversed(symbols):
+        if n >= prefix[s]:
+            value = float(n) / prefix[s]
+            return '%.1f%s' % (value, s)
+    return "%sB" % n
+
+def get_cpu_info():
+    cpu_count = psutil.cpu_count()
+    cpu_percent = psutil.cpu_percent(interval=1)
+    return dict(cpu_count=cpu_count, cpu_percent=cpu_percent)
+
+def get_memory_info():
+    virtual_mem = psutil.virtual_memory()
+    mem_total = bytes2human(virtual_mem.total)
+    mem_percent = virtual_mem.percent
+    mem_free = bytes2human(virtual_mem.free + virtual_mem.buffers + virtual_mem.cached)
+    mem_used = bytes2human(virtual_mem.total * virtual_mem.percent)
+    return dict(mem_total=mem_total, mem_percent=mem_percent, mem_free=mem_free, mem_used=mem_used)
+
+
+def get_disk_info():
+    disk_usage = psutil.disk_usage('/')
+    disk_total = bytes2human(disk_usage.total)
+    disk_percent = disk_usage.percent
+    disk_free = bytes2human(disk_usage.free)
+    disk_used = bytes2human(disk_usage.used)
+    return dict(disk_total=disk_total, disk_percent=disk_percent, disk_free=disk_free, disk_used=disk_used)
+
+def get_boot_info():
+    boot_time = datetime.fromtimestamp(psutil.boot_time()).strftime("%Y-%m-%d %H:%M:%S")
+    return dict(boot_time=boot_time)
+
+def collect_monitor_data():
+    data = {}
+    data.update(get_boot_info())
+    data.update(get_cpu_info())
+    data.update(get_memory_info())
+    data.update(get_disk_info())
+    return data
+
+def main():
+    hostname = socket.gethostname()
+    data = collect_monitor_data()
+
+    data.update(dict(hostname=hostname))
+    print(data)
+    content = render('index.html', **data)
+
+    with yagmail.SMTP(user=EMAIL_USER, password=EMAIL_PASSWORD, host='smtp.163.com', port=25) as yag:
+        for recipient in RECIPIENTS:
+        yag.send(recipient, "监控信息".encode('utf-8'), content.encode('utf-8'))
+
+
+if __name__ == "__main__":
+    main()
+```
+* 前端模版获取监控信息
+```
+$ vim index.html
+<html>
+<head>
+    <title>监控信息</title>
+</head>
+<body>
+    <table border='1'>
+        <tr><td>服务器名称</td><td>{{ hostname }}</td></tr>
+        <tr><td>开机时间</td><td>{{ boot_time }}</td></tr>
+
+        <tr><td>cpu个数</td><td>{{ cpu_count }}</td></tr>
+        <tr><td>cpu利用率</td><td>{{ cpu_percent }}</td></tr>
+
+        <tr><td>内存总量</td><td>{{ mem_percent }}</td></tr>
+        <tr><td>内存利用率</td><td>{{ mem_total }}</td></tr>
+        <tr><td>内存已用空间</td><td>{{ mem_used }}</td></tr>
+        <tr><td>内存可用空间</td><td>{{ mem_free }}</td></tr>
+
+        <tr><td>磁盘空间总量</td><td>{{ disk_total }}</td></tr>
+        <tr><td>磁盘空间利用率</td><td>{{ disk_percent }}</td></tr>
+        <tr><td>磁盘已用空间</td><td>{{ disk_used }}</td></tr>
+        <tr><td>磁盘可用空间</td><td>{{ disk_free }}</td></tr>
+    </table>
+</body>
+</html>
+```
     
     
