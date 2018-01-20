@@ -1307,5 +1307,81 @@ $ vim index.html
 </body>
 </html>
 ```
+
+## python网络分析
+### 列出网络上所有活跃的主机
+* 使用ping命令判断主机是否活跃
+```
+$ ping www.baidu.com    # ping命令使用互联网控制协议(ICMP)中的ECHO_REQUEST数据报，网络设备收到会做出回应。
+PING www.a.shifen.com (220.181.112.244) 56(84) bytes of data.
+64 bytes from 220.181.112.244 (220.181.112.244): icmp_seq=1 ttl=249 time=34.6 ms
+64 bytes from 220.181.112.244 (220.181.112.244): icmp_seq=2 ttl=249 time=34.7 ms
+64 bytes from 220.181.112.244 (220.181.112.244): icmp_seq=3 ttl=249 time=34.6 ms
+
+$ ping -c 2 www.baidu.com                   # ping命令发送了2个ECHO_REQUEST数据报就停止发送。
+PING www.a.shifen.com (14.215.177.39) 56(84) bytes of data.
+64 bytes from 14.215.177.39 (14.215.177.39): icmp_seq=1 ttl=52 time=32.2 ms
+64 bytes from 14.215.177.39 (14.215.177.39): icmp_seq=2 ttl=52 time=32.4 ms
+
+--- www.a.shifen.com ping statistics ---
+2 packets transmitted, 2 received, 0% packet loss, time 1001ms
+rtt min/avg/max/mdev = 32.286/32.371/32.456/0.085 ms
+
+# 编辑test-ping.sh通过ping命令的返回码判断主机是否可达，当主机活跃时，ping命令的返回码为0，当主机不可达时，ping
+# 命令返回码非0。
+$ vim test-ping.sh
+#!/bin/bash
+
+for ip in `cat ips.txt`
+do
+    if ping $ip -c 2 &> /dev/null
+    then
+        echo "$ip is alive"
+    else
+        echo "$ip is unreachable"
+    fi
+done
+$ vim ips.txt                   # 编辑ips.txt写入几个ip供test-ping.sh脚本使用
+127.0.0.1
+192.168.61.1
+10.154.19.199
+$ bash test-ping.sh             # 执行脚本
+127.0.0.1 is alive
+192.168.61.1 is unreachable
+10.154.19.199 is alive
+```
+* 使用Python判断主机是否活跃
+```
+# 使用前面的shell脚本由于每执行一次ping命令都要经历一段时间延迟，所以，要检查大量主机是否处于活跃状态时需要很长的
+# 时间。这里，我们可以使用Python语言编程并发的程序，以此加快程序的执行。
+#!/usr/bin/python
+# -*- coding:utf-8 -*-
+from __future__ import print_function
+
+import subprocess
+import threading
+
+def is_reacheable(ip):
+    if subprocess.call(["ping", "-c", "1", ip]) == 0:
+        print("{0} is alive".format(ip))
+    else:
+        print("{0} is unreacheable".format(ip))
+
+def main():
+    with open('ips.txt') as f:
+        lines = f.readlines()
+        threads = []
+        print(lines)
+        for line in lines:
+            thr = threading.Thread(target=is_reacheable, args=(line,))
+            thr.start()
+            threads.append(thr)
+        for thr in threads:
+            thr.join()
+
+if __name__ == "__main__":
+    main()
+```
+
     
     
