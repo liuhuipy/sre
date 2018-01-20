@@ -1607,7 +1607,87 @@ Out[10]:
  'version': '2-4'}
 ```
 
+## Python自动化管理
+### SSH协议的Python实现paramiko
+* SSH是一个协议，OpenSSH是其中一个开源实现。paramiko是一个python的库，该库支持Python2.6+和Python3.3+版本，实现
+了SSHv2协议。有了paramiko后，我们可以在Python代码中直接使用SSH协议对远程服务器执行操作，而不是调用ssh命令。
+* paramiko的安装。直接使用pip安装。
+    ```
+    $ sudo pip install paramiko
+    $ python -c 'import paramiko'
+    ```
+* SSHClient类与SFTPClient类。paramiko包含两个核心组件，分别是SSHClient和SFTPClient，前者的作用类似与Linux下的
+ssh命令，后者的作用类似于Linux下的sftp命令。SSHClient类是对SSH会话的封装，该类封装了传输(transport)、通道(channel)
+及SFTPClient类建立的方法(open_sftp)，通常用于执行远程命令。SFTPClient类是对SFTP客户端的封装，用以实现远程文件操作，
+如文件上传、下载、修改文件权限等操作。
+    ```
+    # SSHClient类常用的几个方法：
+    # 1）connect：connect方法实现远程服务器连接与认证，对于该方法，只有hostname是必传传输。
+    connect(self, hostname, port=22, username=None, password=None,
+            pkey=None, key_filename=None, timeout=None,
+            allow_agent=True, look_for_keys=True, compress=False)
+    # 2）set_missing_host_key_policy：设置远程服务器没有在know_hosts文件中记录时的应对策略。目前支持三种策略，分别是AutoAddPolicy、
+    RejectPolicy（默认策略）与WarningPolicy，分别表示自动添加服务器到know_hosts文件、拒绝本次连接、警告并将服务器添加到know_hosts中。
+    # 3）exec_command：在远程服务器执行Linux命令。
+    # 4）open_sftp：在当前ssh会话的基础上创建一个sftp会话。该方法会返回一个SFTPClient对象。
+    SFTPClient类常用的几个方法：
+    put：上传本地文件到远程服务器；
+    get：从远程服务器下载文件到本地；
+    mkdir：在远程服务器上创建目录；
+    remove：删除远程服务器中的文件；
+    rmdir：删除远程服务器中的目录；
+    rename：重命名远程服务器中的文件与目录；
+    stat：获取远程服务器中文件的详细信息；
+    listdir：列出远程服务器中指定目录下的内容。
+    ```
+* paramiko的基本使用
+    - 使用密码认证
+        ```
+        import paramiko
+        ssh = paramiko.SSHClient()
+        ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+        ssh.connect("ip", port, 'username', 'password')
+        ```
+    - 使用密钥认证    
+        ```
+        import paramiko
+        ssh = paramiko.SSHClient()
+        ssh.connect('IP', port, 'username', key_filename='私钥')
+        ```
+    - 在建立SSH连接以后，可以通过SSHClient.exec_command方法执行Shell命令。执行Shell命令后不会直接打印输出，而是返回几个Channel。每个
+    Channel都类似于Python的文件对象，可以调用Channel的readlines方法读取输出结果。
+        ```
+        In [1]: import paramiko
+        
+        In [2]: client = paramiko.SSHClient()
 
+        In [3]: client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+
+        In [4]: client.connect('ip', port, 'username', 'password')
+
+        In [5]: stdin, stdout, stderr = client.exec_command('hostname')
+
+        In [6]: print(stdout.readlines())
+        ['VM_19_199_redhat\n']
+
+        In [7]: stdin, stdout, stderr = client.exec_command('lssa')
+
+        In [8]: stderr.readlines()
+        Out[8]: ['bash: lssa: command not found\n']
+        ```
+    - SFTPClient将会复用SSHClient的认证信息。复用的方式很简单，直接使用SSHClient的open_sftp方法即可。SFTPClient提供了大量的文件操作
+    的API，可以进行文件上传、文件下载、修改文件权限、修改文件所有者等。
+        ```
+        In [9]: sftp = client.open_sftp()
+
+        In [10]: sftp.put('website.txt', 'website.txt')
+        Out[10]: <SFTPAttributes: [ size=1059 uid=0 gid=0 mode=0o100644 atime=1516476267 mtime=1516476267 ]>
+
+        In [11]: sftp.stat('website.txt')    
+        Out[11]: <SFTPAttributes: [ size=1059 uid=0 gid=0 mode=0o100644 atime=1516476267 mtime=1516476267 ]>
+
+        In [12]: sftp.rename('website.txt', 'website.py')
+        ```
 
 
 
