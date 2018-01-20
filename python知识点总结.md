@@ -1382,6 +1382,188 @@ def main():
 if __name__ == "__main__":
     main()
 ```
+* 使用生产者消费者模型减少线程的数量
+```
+#!/usr/bin/python
+# -*- coding:utf-8 -*-
+from __future__ import print_function
+
+import subprocess
+import threading
+from Queue import Queue
+from Queue import Empty
+
+def call_ping(ip):
+    if subprocess.call(["ping", "-c", "1", ip]) == 0:
+        print("{0} is alive".format(ip))
+    else:
+        print("{0} is unreacheable".format(ip))
+
+def is_reacheable(q):
+    try:
+        while True:
+            ip = q.get_nowait()
+            call_ping(ip)
+    except Empty:
+        pass
+
+def main():
+    q = Queue()
+    with open('ips.txt') as f:
+        for line in f:
+            q.put(line)
+
+    threads = []
+    for i in range(10):
+        thr = threading.Thread(target=is_reacheable, args=(q,))
+        thr.start()
+        threads.append(thr)
+    for thr in threads:
+        thr.join()
+
+if __name__ == "__main__":
+    main()
+```
+
+### 端口扫描 
+* 使用Python语言编写一个端口扫描器
+```
+# 在Python代码中可以调用telnet命令判断一个端口是否打开，但是telnet命令存在一个问题，当我们telnet一个不可达的端口
+# 时，telnet需要很久才能超时返回。这里我们使用socket模块来编写一个端口扫描器。
+$ vim port-scan1.py                     # 编辑脚本port-scan1.py
+#!/usr/bin/python
+# -*- coding:utf-8 -*-
+from __future__ import print_function
+from socket import socket, AF_INET, SOCK_STREAM
+
+def conn_scan(host, port):
+    conn = socket(AF_INET, SOCK_STREAM)
+    try:
+        conn.connect((host, port))
+        print(host, port, 'is avaliable')
+    except:
+        print(host, port, 'is not avaliable')
+    finally:
+        conn.close()
+
+def main():
+    host = '127.0.0.1'
+    for port in range(20, 5000):
+        conn_scan(host, port)
+
+if __name__ == "__main__":
+    main()
+    
+$ python port-scan1.py              # 执行脚本
+127.0.0.1 20 is not avaliable
+127.0.0.1 21 is not avaliable
+127.0.0.1 22 is avaliable
+127.0.0.1 23 is not avaliable
+127.0.0.1 24 is not avaliable
+127.0.0.1 25 is avaliable
+127.0.0.1 26 is not avaliable
+127.0.0.1 27 is not avaliable
+127.0.0.1 28 is not avaliable
+127.0.0.1 29 is not avaliable
+127.0.0.1 30 is not avaliable
+...
+```
+* 使用nmap扫描端口。nmap(Network Mapper)是知名的网络探测和安全扫描程序，nmap可以进行主机发现(Host Discovery)、
+端口扫描(Port Scanning)、版本侦测(Version Detection)、操作系统侦测(Operating System Detection)。
+```
+$ sudo yum install nmap                       # 安装nmap
+# nmap具有非常灵活的方式指定需要扫描的主机，我们可以使用nmap命令的-sL选项来进行测试。-sL选项仅仅打印IP列表。
+$ nmap -sL 127.0.0.1/30
+
+Starting Nmap 6.40 ( http://nmap.org ) at 2018-01-21 01:08 CST
+Nmap scan report for 127.0.0.0
+Nmap scan report for localhost (127.0.0.1)
+Nmap scan report for 127.0.0.2
+Nmap scan report for 127.0.0.3
+Nmap done: 4 IP addresses (0 hosts up) scanned in 0.00 seconds
+
+$ nmap -sL 10.154.19.199 127.0.0.1          # 指定多个主机
+
+Starting Nmap 6.40 ( http://nmap.org ) at 2018-01-21 01:10 CST
+Nmap scan report for 10.154.19.199
+Nmap scan report for localhost (127.0.0.1)
+Nmap done: 2 IP addresses (0 hosts up) scanned in 0.00 seconds
+
+$ nmap -iL ips.txt                  # -iL选项读取文件中的IP地址
+
+Starting Nmap 6.40 ( http://nmap.org ) at 2018-01-21 01:12 CST
+Nmap scan report for localhost (127.0.0.1)
+Host is up (0.00024s latency).
+Not shown: 995 closed ports
+PORT     STATE SERVICE
+22/tcp   open  ssh
+25/tcp   open  smtp
+80/tcp   open  http
+111/tcp  open  rpcbind
+8080/tcp open  http-proxy
+
+Nmap scan report for 10.154.19.199
+Host is up (0.00025s latency).
+Not shown: 997 closed ports
+PORT    STATE SERVICE
+22/tcp  open  ssh
+80/tcp  open  http
+111/tcp open  rpcbind
+
+Nmap done: 3 IP addresses (2 hosts up) scanned in 1.27 seconds
+```
+* 主机发现。使用-sP或-sn选项可以仅仅判断主机是否可达，不进行端口扫描。
+```
+nmap -sP 10.154.19.199
+
+Starting Nmap 6.40 ( http://nmap.org ) at 2018-01-21 01:15 CST
+Nmap scan report for 10.154.19.199
+Host is up (0.000038s latency).
+Nmap done: 1 IP address (1 host up) scanned in 0.00 seconds
+```
+* 端口扫描。不添加任何参数便是对主机进行端口扫描，默认情况下，nmap将会扫描1000个最常用的端口和。
+```
+$ nmap 10.154.19.199
+
+Starting Nmap 6.40 ( http://nmap.org ) at 2018-01-21 01:17 CST
+Nmap scan report for 10.154.19.199
+Host is up (0.00025s latency).
+Not shown: 997 closed ports
+PORT    STATE SERVICE
+22/tcp  open  ssh
+80/tcp  open  http
+111/tcp open  rpcbind
+
+Nmap done: 1 IP address (1 host up) scanned in 0.04 seconds
+
+# 在进行端口扫描时，nmap提供了大量的参数控制端口扫描。包括端口扫描协议、端口扫描类型、扫描的端口号。
+# 端口扫描协议：T(TCP)、U(UDP)、S(SCTP)、P(IP)；
+# 端口扫描类型：-sS/sT/sA/sW/sM:TCP SYN/Connect()/ACK/Window/Maimon scans；
+# 扫描的端口号：-p 80,443；
+# nmap通过探测将端口划分为6个状态：
+# open              端口是开放的
+# closed            端口是关闭的
+# filtered          端口被防火墙IDS/IPS屏蔽，无法确定其状态
+# unfiltered        端口没有被屏蔽，但是否开放需要进一步确定
+# open/filtered     端口是开放的或被屏蔽
+# closed/filtered   端口是关闭的或被屏蔽
+
+# 在端口扫描时，可以使用不同的端口扫描类型。常见的端口扫描类型如下：
+# TCP SYNC SCAN：半开放扫描。这种扫描为发送一个SYN包，启动一个TCP会话，并等待响应的数据包。如果收到的是一个reset
+                包，表明端口是关闭的；如果收到的是一个SYNC/ACK包，则表示端口是打开的。
+# TCP NULL SCAN：NULL扫描把TCP头中的所有标志位都设置为NULL。如果收到是RST包，则表示相应的端口是关闭的。
+# TCP FIN SCAN：TCP FIN扫描发送一个表示结束一个活跃的TCP连接的FIN包，让对方关闭连接。如果收到RST包则端口是关闭的。
+# TCP XMAS SCAN：TCP XMAS扫描发送PSH、FIN、URG和TCP标志位被设置为1的数据包，如果收到一个RST包则端口是关闭的。
+```
+* 版本侦测。版本侦测功能用于确定开放端口上运行的应用程序及版本信息。
+```
+$ nmap -sV 127.0.0.1
+```
+
+
+
+
+
 
     
     
