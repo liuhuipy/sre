@@ -1559,7 +1559,53 @@ Nmap done: 1 IP address (1 host up) scanned in 0.04 seconds
 ```
 $ nmap -sV 127.0.0.1
 ```
+* 使用python-nmap进行端口扫描。python-nmap仅仅是对nmap的封装，python-nmap将nmap的输出结果保存到字典之中，我们只
+需要通过python的字典就可以获取到nmap的输出信息。
+```
+$ sudo pip install python-nmap              # 安装python-nmap
+# python-nmap的使用非常简单，我们只需要创建一个PortScanner对象，并调用对象的scan方法就能够完成基本的nmap端口扫描。
+In [1]: import nmap
 
+In [2]: nm = nmap.PortScanner()
+
+In [3]: nm.scan('10.154.19.199', '22-1000')
+Out[3]: 
+{'nmap': {'command_line': 'nmap -oX - -p 22-1000 -sV 10.154.19.199',
+  'scaninfo': {'tcp': {'method': 'connect', 'services': '22-1000'}},
+  'scanstats': {'downhosts': '0',
+   ...
+   
+In [4]: nm.command_line()               # 获取命令行参数
+Out[4]: 'nmap -oX - -p 22-1000 -sV 10.154.19.199'
+
+In [5]: nm.scaninfo()                   # 获取扫描的方法
+Out[5]: {'tcp': {'method': 'connect', 'services': '22-1000'}}
+
+In [6]: nm.all_hosts()                  # 获取主机列表
+Out[6]: ['10.154.19.199']
+
+# python-nmap还提供了以主机地址为键，获取单台主机的详细信息。包括获取主机网络状态、所有的协议、所有打开的端口号、
+# 端口号对应的服务等。
+In [7]: nm['10.154.19.199'].state()
+Out[7]: 'up'
+
+In [8]: nm['10.154.19.199'].all_protocols()
+Out[8]: ['tcp']
+
+In [9]: nm['10.154.19.199']['tcp'].keys()
+Out[9]: [80, 22, 111]
+
+In [10]: nm['10.154.19.199']['tcp'][111]
+Out[10]: 
+{'conf': '10',
+ 'cpe': '',
+ 'extrainfo': 'RPC #100000',
+ 'name': 'rpcbind',
+ 'product': '',
+ 'reason': 'syn-ack',
+ 'state': 'open',
+ 'version': '2-4'}
+```
 
 
 
