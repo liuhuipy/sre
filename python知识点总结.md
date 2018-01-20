@@ -1688,7 +1688,36 @@ ssh命令，后者的作用类似于Linux下的sftp命令。SSHClient类是对SS
 
         In [12]: sftp.rename('website.txt', 'website.py')
         ```
+* 使用paramiko部署监控程序。将本地文件的monitor.py文件上传远程服务器，通过SFTPClient的chmod方法修改monitor.py文件的权限。
+    ```
+    #!/usr/bin/python
+    # -*- coding:utf-8 -*-
+    from __future__ import print_function
 
+    import paramiko
+
+    def deploy_monitor(ip):
+
+        with paramiko.SSHClient() as client:
+            client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+            client.connect(ip, 22, 'liuhui', 'aixocm')
+
+            stdin, stdout, stderr = client.exec_command('ls -l')
+            print(stdout.readlines())
+
+            with client.open_sftp() as sftp:
+                sftp.put('monitor.py', 'monitor.py')
+                sftp.chmod('monitor.py', 0o755)
+
+
+    def main():
+        with open('ips.txt') as f:
+            for line in f:
+                deploy_monitor(line.strip())
+
+    if __name__ == '__main__':
+        main()
+    ```
 
 
     
